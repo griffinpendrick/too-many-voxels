@@ -13,6 +13,14 @@
 static const int RENDER_DISTANCE = 16;
 static const int CHUNKS_PER_FRAME = 2;
 
+struct RaycastHit
+{
+	RaycastHit(Chunk* chunk, glm::ivec3 pos) : WorldChunk(chunk), BlockPosition(pos){}
+
+	Chunk* WorldChunk;
+	glm::ivec3 BlockPosition;
+};
+
 struct ChunkHash
 {
 	size_t operator()(const glm::vec3& pos) const
@@ -34,7 +42,8 @@ struct World
     void Render(Shader &shader);
     void Update(Camera camera);
 
-	void Raycast(glm::vec3 Position, glm::vec3 Direction, float MaxReach, int CurrentBlock, bool Mode);
+	RaycastHit Raycast(glm::vec3 Position, glm::vec3 Direction, float MaxReach, bool Mode);
+	void SetBlock(Chunk* chunk, glm::ivec3 BlockIndex, int SelectedBlock, bool Mode);
 
     inline void LoadChunks(int ChunkX, int ChunkZ);
     inline void UnloadChunks(int ChunkX, int ChunkZ);

@@ -9,7 +9,7 @@ struct Camera
 {
     Camera(glm::vec3 pos, glm::vec2 WindowSize);
 
-    void Update(GLFWwindow* window);
+    void Update(GLFWwindow* window, float dt);
     glm::mat4 ViewMatrix();
     glm::mat4 ProjectionMatrix();
 
@@ -17,8 +17,7 @@ struct Camera
     float sensitivity;
     float pitch;
     float yaw;
-
-    const float FOV = 60.0f;
+    float FOV;
 
     glm::vec2 ViewPlane;
 

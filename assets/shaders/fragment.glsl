@@ -12,7 +12,7 @@ vec3 lightDirection = vec3(0.5, 1, 0.5);
 
 void main() 
 {
-	vec3 lightDir = normalize(-lightDirection);
+	vec3 lightDir = normalize(lightDirection);
 	float diff = max(dot(Normal, lightDir), 0.0);
 	vec3 diffuse = diff * vec3(1);
 

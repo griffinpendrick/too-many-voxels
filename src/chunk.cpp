@@ -71,6 +71,10 @@ void Chunk::GenerateChunk()
 						Blocks[GetBlockIndex(x, y, z)] = BlockType::GRASS;
 					}
 				}
+				else if (y == 0)
+				{
+					Blocks[GetBlockIndex(x, y, z)] = BlockType::BEDROCK;
+				}
 				else
 				{
 					Blocks[GetBlockIndex(x, y, z)] = BlockType::STONE;

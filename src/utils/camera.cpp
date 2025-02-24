@@ -2,9 +2,10 @@
 
 Camera::Camera(glm::vec3 pos, glm::vec2 WindowSize)
 {
-    sensitivity = 0.1f;
+    FOV = 60.0f;
     yaw = -90.0f;
     pitch = 0.0f;
+    sensitivity = 10.0f;
 
     ViewPlane = WindowSize;
     PreviousMousePosition = glm::vec2(ViewPlane.x / 2, ViewPlane.y / 2);
@@ -13,15 +14,15 @@ Camera::Camera(glm::vec3 pos, glm::vec2 WindowSize)
     Up = glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
-void Camera::Update(GLFWwindow* window) 
+void Camera::Update(GLFWwindow* window, float dt) 
 {
     glfwGetCursorPos(window, &CurrentMousePosition.x, &CurrentMousePosition.y);
 
     glm::vec2 MousePositionDelta = CurrentMousePosition - PreviousMousePosition;
     PreviousMousePosition = CurrentMousePosition;
 
-    yaw += MousePositionDelta.x * sensitivity;
-    pitch -= MousePositionDelta.y * sensitivity;
+    yaw += MousePositionDelta.x * sensitivity * dt;
+    pitch -= MousePositionDelta.y * sensitivity * dt;
 
     if (pitch > 89.0f) 
     {

@@ -113,72 +113,76 @@ void World::Render(Shader& shader)
     }
 }
 
-void World::Raycast(glm::vec3 Position, glm::vec3 Direction, float MaxReach, int CurrentBlock, bool Mode)
+RaycastHit World::Raycast(glm::vec3 Position, glm::vec3 Direction, float MaxReach, bool PlaceMode)
 {
-	float currentReach = 0.0f;
-	glm::ivec3 lastEmptyBlock;
-	bool hasEmptyBlock = false;
+    float CurrentReach = 0.0f;
+    glm::ivec3 LastEmptyBlock = glm::ivec3(std::floor(Position.x), std::floor(Position.y), std::floor(Position.z));
 
-	while (currentReach < MaxReach)
-	{
-		currentReach += 0.01f;
-		glm::vec3 result = Position + Direction * currentReach;
-		glm::ivec3 currentBlock;
-		currentBlock.x = std::floor(result.x);
-		currentBlock.y = std::floor(result.y);
-		currentBlock.z = std::floor(result.z);
+    while (CurrentReach < MaxReach)
+    {
+        CurrentReach += 0.01f;
+        glm::vec3 Result = Position + Direction * CurrentReach;
+        glm::ivec3 CurrentBlock(
+            std::floor(Result.x),
+            std::floor(Result.y),
+            std::floor(Result.z)
+        );
 
-		int chunkX = std::floor((float)currentBlock.x / CHUNK_SIZE);
-		int chunkZ = std::floor((float)currentBlock.z / CHUNK_SIZE);
-		Chunk* chunk = World::world->Chunks[{chunkX, 0, chunkZ}];
-		if (chunk)
-		{
-			int localX = currentBlock.x - (chunkX * CHUNK_SIZE);
-			int localY = currentBlock.y;
-			int localZ = currentBlock.z - (chunkZ * CHUNK_SIZE);
-			int index = chunk->GetBlockIndex(localX, localY, localZ);
-			uint8_t block = chunk->Blocks[index];
+        if (!PlaceMode || (CurrentBlock != LastEmptyBlock))
+        {
+            int ChunkX = std::floor((float)CurrentBlock.x / CHUNK_SIZE);
+            int ChunkZ = std::floor((float)CurrentBlock.z / CHUNK_SIZE);
+            glm::ivec3 chunkPos(ChunkX, 0, ChunkZ);
+            if (Chunks.find(chunkPos) != Chunks.end())
+            {
+                Chunk* chunk = World::world->Chunks[chunkPos];
+                int LocalX = CurrentBlock.x - (ChunkX * CHUNK_SIZE);
+                int LocalY = CurrentBlock.y;
+                int LocalZ = CurrentBlock.z - (ChunkZ * CHUNK_SIZE);
 
-			if (block != 0)
-			{
-				if (Mode)
-				{
-					if (hasEmptyBlock)
-					{
-						int placeGlobalX = lastEmptyBlock.x;
-						int placeGlobalY = lastEmptyBlock.y;
-						int placeGlobalZ = lastEmptyBlock.z;
+                if (CurrentBlock.y > 0 && LastEmptyBlock.y < CHUNK_HEIGHT && chunk && chunk->Blocks[chunk->GetBlockIndex(LocalX, LocalY, LocalZ)] != BlockType::AIR)
+                {
+                    if (PlaceMode)
+                    {
+                        int LastChunkX = std::floor((float)LastEmptyBlock.x / CHUNK_SIZE);
+                        int LastChunkZ = std::floor((float)LastEmptyBlock.z / CHUNK_SIZE);
+                        glm::ivec3 lastChunkPos(LastChunkX, 0, LastChunkZ);
+                        if (Chunks.find(lastChunkPos) != Chunks.end())
+                        {
+                            Chunk* lastChunk = World::world->Chunks[lastChunkPos];
+                            int LastLocalX = LastEmptyBlock.x - (LastChunkX * CHUNK_SIZE);
+                            int LastLocalY = LastEmptyBlock.y;
+                            int LastLocalZ = LastEmptyBlock.z - (LastChunkZ * CHUNK_SIZE);
+                            return RaycastHit(lastChunk, glm::ivec3(LastLocalX, LastLocalY, LastLocalZ));
+                        }
+                    }
+                    else
+                    {
+                        return RaycastHit(chunk, glm::ivec3(LocalX, LocalY, LocalZ));
+                    }
+                }
+            }
+            if (PlaceMode)
+            {
+                LastEmptyBlock = CurrentBlock;
+            }
+        }
+    }
+    return RaycastHit(nullptr, glm::ivec3(0));
+}
 
-						int placeChunkX = std::floor((float)placeGlobalX / CHUNK_SIZE);
-						int placeChunkZ = std::floor((float)placeGlobalZ / CHUNK_SIZE);
-						Chunk* placeChunk = World::world->Chunks[{placeChunkX, 0, placeChunkZ}];
-						if (placeChunk)
-						{
-							int localPlaceX = placeGlobalX - (placeChunkX * CHUNK_SIZE);
-							int localPlaceY = placeGlobalY;
-							int localPlaceZ = placeGlobalZ - (placeChunkZ * CHUNK_SIZE);
-							int placeIndex = placeChunk->GetBlockIndex(localPlaceX, localPlaceY, localPlaceZ);
-
-							if (placeChunk->Blocks[placeIndex] == 0)
-							{
-								placeChunk->Blocks[placeIndex] = CurrentBlock; 
-								placeChunk->UpdateChunk();
-							}
-						}
-					}
-				}
-				else
-				{
-					chunk->Blocks[index] = BlockType::AIR;
-					chunk->UpdateChunk();
-				}
-				break;
-			}
-			else
-			{
-				lastEmptyBlock = currentBlock;
-				hasEmptyBlock = true;
-			}
-		}
-	}
+void World::SetBlock(Chunk* chunk, glm::ivec3 BlockPosition, int SelectedBlock, bool PlaceMode)
+{
+    int Index = chunk->GetBlockIndex(BlockPosition.x, BlockPosition.y, BlockPosition.z);
+    
+    if (PlaceMode)
+    {
+        chunk->Blocks[Index] = SelectedBlock; 
+        chunk->UpdateChunk();
+    }
+    else if (!PlaceMode)
+    {
+        chunk->Blocks[Index] = BlockType::AIR;
+        chunk->UpdateChunk();
+    }
 }

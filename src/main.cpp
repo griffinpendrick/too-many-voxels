@@ -3,7 +3,6 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include <iostream>
 
 #include "world.h"
 #include "utils/shader.h"
@@ -13,13 +12,15 @@ void ProcessInput(GLFWwindow* window);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);  
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 inline void LoadTexture(const char* TexturePath);
-inline void debugInfo(double currentTime, double& lastTime, int& frameCount, Camera camera);
+inline float lerp(float a, float b, float t);
 
 // Current Selected block for placement
-static int CurrentBlock = BlockType::GRASS;
+static int SelectedBlock = BlockType::GRASS;
 
 static const int windowWidth = 1280;
 static const int windowHeight = 720;
+
+static float dt = 0.0f;
 
 static Camera camera(glm::ivec3(51, 32, -10), glm::vec2(windowWidth, windowHeight));
 
@@ -45,32 +46,33 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-	Shader shader("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl");
+	Shader WorldShader("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl");
     LoadTexture("assets/gfx/textureatlas.png");
 
     World::world = new World();
 
-    double lastTime = glfwGetTime();
-    int frameCount = 0;
+    double LastTime = glfwGetTime();
+    int FrameCount = 0;
 
     while (!glfwWindowShouldClose(window))
     {
-        debugInfo(glfwGetTime(), lastTime, frameCount, camera);
+        double CurrentTime = glfwGetTime();
+        dt = CurrentTime - LastTime;
+        LastTime = CurrentTime;
 
         ProcessInput(window);
-
-        camera.Update(window);
+        camera.Update(window, dt);
 		World::world->Update(camera);
-
-        shader.SetMat4("view", camera.ViewMatrix());
-        shader.SetMat4("projection", camera.ProjectionMatrix());
-        shader.SetInt("TextureAtlas", 0);
-		shader.Use();
 
 		glClearColor(0.2f, 0.5f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        World::world->Render(shader);
+        WorldShader.SetMat4("view", camera.ViewMatrix());
+        WorldShader.SetMat4("projection", camera.ProjectionMatrix());
+        WorldShader.SetInt("TextureAtlas", 0);
+		WorldShader.Use();
+
+        World::world->Render(WorldShader);
 
         glfwSwapBuffers(window);
         glfwPollEvents();    
@@ -85,49 +87,54 @@ int main()
 void ProcessInput(GLFWwindow* window)
 {
     // Place / Break
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS)
+	RaycastHit RaycastPlace = World::world->Raycast(camera.Position, camera.Direction, 5, true);
+	RaycastHit RaycastBreak = World::world->Raycast(camera.Position, camera.Direction, 5, false);
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS && RaycastPlace.WorldChunk != nullptr)
     {
-        World::world->Raycast(camera.Position, camera.Direction, 5, CurrentBlock, true);
+		World::world->SetBlock(RaycastPlace.WorldChunk, RaycastPlace.BlockPosition, SelectedBlock, true);
     }
-    else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS)
+    else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS && RaycastBreak.WorldChunk != nullptr)
     {
-        World::world->Raycast(camera.Position, camera.Direction, 5, CurrentBlock, false);
+		World::world->SetBlock(RaycastBreak.WorldChunk, RaycastBreak.BlockPosition, SelectedBlock, false);
     }
 
-    // "Sprint"
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) 
-    {
-        camera.speed = 0.5f;
-    }
-    else if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE) 
-    {
-        camera.speed = 0.1f;
-    }
+	// "Sprint" / Dynamic FOV
+	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) 
+	{
+		camera.speed = 3000.0f * dt;
+		camera.FOV = lerp(camera.FOV, 80.0f, 10.0f * dt);
+	}
+	else if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE)
+	{
+		camera.speed = 1000.0f * dt;
+		camera.FOV = lerp(camera.FOV, 60.0f, 10.0f * dt);
+	}
 
     // Movement Stuffs
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        camera.Position += camera.Direction * camera.speed;
+        camera.Position += camera.Direction * camera.speed * dt;
     }
+
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        camera.Position -= camera.Direction * camera.speed;
+        camera.Position -= camera.Direction * camera.speed * dt;
     }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        camera.Position -= glm::normalize(glm::cross(camera.Direction, camera.Up)) * camera.speed;
+        camera.Position -= glm::normalize(glm::cross(camera.Direction, camera.Up)) * camera.speed * dt;
     }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        camera.Position += glm::normalize(glm::cross(camera.Direction, camera.Up)) * camera.speed;
+        camera.Position += glm::normalize(glm::cross(camera.Direction, camera.Up)) * camera.speed * dt;
     }
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
     {
-        camera.Position += camera.Up * camera.speed;
+        camera.Position += camera.Up * camera.speed * dt;
     }
     if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
     {
-        camera.Position -= camera.Up * camera.speed;
+        camera.Position -= camera.Up * camera.speed * dt;
     }
 
     // Polygon Mode
@@ -164,46 +171,6 @@ inline void LoadTexture(const char* TexturePath)
     stbi_image_free(data);
 }
 
-inline void debugInfo(double currentTime, double& lastTime, int& frameCount, Camera camera)
-{
-    frameCount++;
-    if (currentTime - lastTime >= 1.0)
-    {
-        printf("FPS: %d\n", frameCount);
-        printf("Camera Position: (%f, %f, %f)\n", camera.Position.x, camera.Position.y, camera.Position.z);
-        
-        switch (CurrentBlock)
-        {
-        case 1:
-            std::cout << "Current Block: Grass" << std::endl;
-            break;
-        case 2:
-            std::cout << "Current Block: Stone" << std::endl;
-            break;
-        case 3:
-            std::cout << "Current Block: Snow" << std::endl;
-            break;
-        case 4:
-            std::cout << "Current Block: Sand" << std::endl;
-            break;
-        case 5:
-            std::cout << "Current Block: Wood" << std::endl;
-            break;
-        case 6:
-            std::cout << "Current Block: Leaves" << std::endl;
-            break;
-        case 7:
-            std::cout << "Current Block: Water" << std::endl;
-            break;
-        default:
-            std::cout << "Current Block: NULL" << std::endl;
-        }
-
-        frameCount = 0;
-        lastTime = currentTime;
-    }
-}
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
@@ -213,18 +180,23 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     if (yoffset > 0)
     {
-        CurrentBlock++;
-        if (CurrentBlock > 7)
+        SelectedBlock++;
+        if (SelectedBlock > 8)
         {
-            CurrentBlock = 1;
+            SelectedBlock = 1;
         }
     }
     else
     {
-        CurrentBlock--;
-        if (CurrentBlock < 1)
+        SelectedBlock--;
+        if (SelectedBlock < 1)
         {
-            CurrentBlock = 7;
+            SelectedBlock = 8;
         }
     }
+}
+
+inline float lerp(float a, float b, float t)
+{
+    return a + (b - a) * t;
 }
