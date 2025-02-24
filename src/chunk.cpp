@@ -10,6 +10,10 @@ Chunk::Chunk(glm::ivec3 pos)
     memset(Blocks.data(), BlockType::AIR, Blocks.size() * sizeof(uint8_t));
 }
 
+Chunk::~Chunk()
+{
+}
+
 inline int Chunk::GetBlockIndex(int x, int y, int z)
 {
     return x + (y * CHUNK_SIZE) + (z * CHUNK_SIZE * CHUNK_HEIGHT);
@@ -17,8 +21,8 @@ inline int Chunk::GetBlockIndex(int x, int y, int z)
 
 inline float Chunk::GetHeightMap(Chunk* chunk, int x, int z)
 {
-    int WorldX = chunk->Position.x * CHUNK_SIZE + x;
-    int WorldZ = chunk->Position.z * CHUNK_SIZE + z;
+    float WorldX = chunk->Position.x * CHUNK_SIZE + x;
+    float WorldZ = chunk->Position.z * CHUNK_SIZE + z;
 
     FastNoiseLite noise;
 	noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -31,7 +35,7 @@ inline float Chunk::GetHeightMap(Chunk* chunk, int x, int z)
     for (int i = 0; i < 4; i++)
     {
 		noise.SetFrequency(Frequency);
-		Height += noise.GetNoise((float)WorldX, (float)WorldZ) * Amplitude;
+		Height += noise.GetNoise(WorldX, WorldZ) * Amplitude;
         Amplitude *= 0.5f;
         Frequency *= 2.0f;
     }
@@ -54,11 +58,11 @@ void Chunk::GenerateChunk()
 					{
 						Blocks[GetBlockIndex(x, y, z)] = BlockType::SNOW;
 					}
-					else if (Height < WATER_LEVEL)
+					else if (y < WATER_LEVEL)
 					{
 						Blocks[GetBlockIndex(x, y, z)] = BlockType::WATER;
 					}
-					else if (Height < 30)
+					else if (y < 30)
 					{
 						Blocks[GetBlockIndex(x, y, z)] = BlockType::SAND;
 					}
@@ -87,6 +91,9 @@ void Chunk::GenerateChunk()
 
 void Chunk::GenerateChunkMesh()
 {
+	vertices.clear();
+	indices.clear();
+
     for (int x = 0; x < CHUNK_SIZE; ++x)
     {
 		for (int y = 0; y < CHUNK_HEIGHT; ++y)
@@ -99,211 +106,6 @@ void Chunk::GenerateChunkMesh()
                 }
             }
         }
-    }
-}
-
-void Chunk::GenerateBlockMesh(int x, int y, int z)
-{
-    int index = GetBlockIndex(x, y, z);
-    
-    glm::vec3 p1 = glm::vec3(x - BLOCK_RENDER_SIZE, y - BLOCK_RENDER_SIZE, z + BLOCK_RENDER_SIZE);
-    glm::vec3 p2 = glm::vec3(x + BLOCK_RENDER_SIZE, y - BLOCK_RENDER_SIZE, z + BLOCK_RENDER_SIZE);
-    glm::vec3 p3 = glm::vec3(x + BLOCK_RENDER_SIZE, y + BLOCK_RENDER_SIZE, z + BLOCK_RENDER_SIZE);
-    glm::vec3 p4 = glm::vec3(x - BLOCK_RENDER_SIZE, y + BLOCK_RENDER_SIZE, z + BLOCK_RENDER_SIZE);
-    glm::vec3 p5 = glm::vec3(x + BLOCK_RENDER_SIZE, y - BLOCK_RENDER_SIZE, z - BLOCK_RENDER_SIZE);
-    glm::vec3 p6 = glm::vec3(x - BLOCK_RENDER_SIZE, y - BLOCK_RENDER_SIZE, z - BLOCK_RENDER_SIZE);
-    glm::vec3 p7 = glm::vec3(x - BLOCK_RENDER_SIZE, y + BLOCK_RENDER_SIZE, z - BLOCK_RENDER_SIZE);
-    glm::vec3 p8 = glm::vec3(x + BLOCK_RENDER_SIZE, y + BLOCK_RENDER_SIZE, z - BLOCK_RENDER_SIZE);
-
-    glm::vec2 uv1, uv2, uv3, uv4;
-
-    // Side Textures
-    if (Blocks[index] == BlockType::GRASS)
-    {
-		uv1 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 2.0f};
-		uv2 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 2.0f};
-		uv3 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 3.0f};
-		uv4 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 3.0f};
-    }
-    else if (Blocks[index] == BlockType::STONE)
-    {
-        uv1 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 3.0f};
-        uv2 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 3.0f};
-        uv3 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 2.0f};
-        uv4 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 2.0f};
-    }
-    else if (Blocks[index] == BlockType::SNOW)
-    {
-        uv1 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 2.0f};
-        uv4 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 2.0f};
-    }
-    else if (Blocks[index] == BlockType::SAND)
-    {
-        uv1 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 0.0f};
-        uv4 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::WOOD)
-    {
-        uv4 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::LEAVES)
-    {
-        uv4 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::WATER)
-    {
-        uv4 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 4.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 4.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-
-    // Front Face
-    if (z == CHUNK_SIZE - 1 || !Blocks[GetBlockIndex(x, y, z + 1)])
-    {
-		AddFace(p1, p2, p3, p4, glm::vec3(0.0f, 0.0f, 1.0f), uv1, uv2, uv3, uv4);
-	}
-
-    // Back Face
-    if (z == 0 || !Blocks[GetBlockIndex(x, y, z - 1)])
-    {
-		AddFace(p5, p6, p7, p8, glm::vec3(0.0f, 0.0f, -1.0f), uv1, uv2, uv3, uv4);
-	}
-
-    // Right Face
-    if (x == CHUNK_SIZE - 1 || !Blocks[GetBlockIndex(x + 1, y, z)])
-    {
-		AddFace(p2, p5, p8, p3, glm::vec3(1.0f, 0.0f, 0.0f), uv1, uv2, uv3, uv4);
-	}
-
-    // Left Face
-    if (x == 0 || !Blocks[GetBlockIndex(x - 1, y, z)])
-    {
-		AddFace(p6, p1, p4, p7, glm::vec3(-1.0f, 0.0f, 0.0f), uv1, uv2, uv3, uv4);
-	}
-
-	// Top Texture
-    if (Blocks[index] == BlockType::GRASS)
-    {
-		uv1 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 3.0f};
-		uv2 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 3.0f};
-		uv3 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 2.0f};
-		uv4 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 2.0f};
-    }
-    else if (Blocks[index] == BlockType::STONE)
-    {
-        uv1 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 3.0f};
-        uv2 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 3.0f};
-        uv3 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 2.0f};
-        uv4 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 2.0f};
-    }
-    else if (Blocks[index] == BlockType::SNOW)
-    {
-       uv1 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 2.0f};
-       uv2 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 2.0f};
-       uv3 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 1.0f};
-       uv4 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 1.0f};
-    }
-    else if (Blocks[index] == BlockType::SAND)
-    {
-        uv1 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 0.0f};
-        uv4 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::WOOD)
-    {
-        uv4 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::LEAVES)
-    {
-        uv4 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::WATER)
-    {
-        uv4 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 4.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 4.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-
-    // Top Face 
-    if (y == CHUNK_HEIGHT - 1 || !Blocks[GetBlockIndex(x, y + 1, z)])
-    {
-        AddFace(p4, p3, p8, p7, glm::vec3(0.0f, 1.0f, 0.0f), uv1, uv2, uv3, uv4);
-    }
-
-	// Bottom Texture
-    if (Blocks[index] == BlockType::GRASS)
-    {
-        uv1 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 2.0f};
-        uv2 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 2.0f};
-        uv3 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-        uv4 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 1.0f};
-    }
-    else if (Blocks[index] == BlockType::STONE)
-    {
-        uv1 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 3.0f};
-        uv2 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 3.0f};
-        uv3 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 2.0f};
-        uv4 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 2.0f};
-    }
-    else if (Blocks[index] == BlockType::SNOW)
-    {
-		uv1 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 2.0f};
-		uv2 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 2.0f};
-		uv3 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-		uv4 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 1.0f};
-    }
-    else if (Blocks[index] == BlockType::SAND)
-    {
-        uv1 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 0.0f};
-        uv4 = {TEXTURE_DIMENSION * 0.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::WOOD)
-    {
-        uv4 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 1.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::LEAVES)
-    {
-        uv4 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 2.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-    else if (Blocks[index] == BlockType::WATER)
-    {
-        uv4 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 1.0f};
-        uv3 = {TEXTURE_DIMENSION * 4.0f, TEXTURE_DIMENSION * 1.0f};
-        uv2 = {TEXTURE_DIMENSION * 4.0f, TEXTURE_DIMENSION * 0.0f};
-        uv1 = {TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 0.0f};
-    }
-
-    // Bottom Face
-    if (y == 0 || !Blocks[GetBlockIndex(x, y - 1, z)])
-    {
-		AddFace(p6, p5, p2, p1, glm::vec3(0.0f, -1.0f, 0.0f), uv1, uv2, uv3, uv4);
     }
 }
 
@@ -344,6 +146,58 @@ inline void Chunk::GenerateTreeMesh(int x, int y, int z)
 	}
 }
 
+
+void Chunk::GenerateBlockMesh(int x, int y, int z)
+{
+    glm::vec2 uv1, uv2, uv3, uv4;
+    glm::vec3 p1 = glm::vec3(x - BLOCK_RENDER_SIZE, y - BLOCK_RENDER_SIZE, z + BLOCK_RENDER_SIZE);
+    glm::vec3 p2 = glm::vec3(x + BLOCK_RENDER_SIZE, y - BLOCK_RENDER_SIZE, z + BLOCK_RENDER_SIZE);
+    glm::vec3 p3 = glm::vec3(x + BLOCK_RENDER_SIZE, y + BLOCK_RENDER_SIZE, z + BLOCK_RENDER_SIZE);
+    glm::vec3 p4 = glm::vec3(x - BLOCK_RENDER_SIZE, y + BLOCK_RENDER_SIZE, z + BLOCK_RENDER_SIZE);
+    glm::vec3 p5 = glm::vec3(x + BLOCK_RENDER_SIZE, y - BLOCK_RENDER_SIZE, z - BLOCK_RENDER_SIZE);
+    glm::vec3 p6 = glm::vec3(x - BLOCK_RENDER_SIZE, y - BLOCK_RENDER_SIZE, z - BLOCK_RENDER_SIZE);
+    glm::vec3 p7 = glm::vec3(x - BLOCK_RENDER_SIZE, y + BLOCK_RENDER_SIZE, z - BLOCK_RENDER_SIZE);
+    glm::vec3 p8 = glm::vec3(x + BLOCK_RENDER_SIZE, y + BLOCK_RENDER_SIZE, z - BLOCK_RENDER_SIZE);
+
+	int i = Blocks[GetBlockIndex(x, y, z)] - 1;
+
+    // Front Face
+    if (z == CHUNK_SIZE - 1 || !Blocks[GetBlockIndex(x, y, z + 1)])
+    {
+		AddFace(p1, p2, p3, p4, glm::vec3(0.0f, 0.0f, 1.0f), BlockUVTable[i].Side);
+	}
+
+    // Back Face
+    if (z == 0 || !Blocks[GetBlockIndex(x, y, z - 1)])
+    {
+		AddFace(p5, p6, p7, p8, glm::vec3(0.0f, 0.0f, -1.0f), BlockUVTable[i].Side);
+	}
+
+    // Right Face
+    if (x == CHUNK_SIZE - 1 || !Blocks[GetBlockIndex(x + 1, y, z)])
+    {
+		AddFace(p2, p5, p8, p3, glm::vec3(1.0f, 0.0f, 0.0f), BlockUVTable[i].Side);
+	}
+
+    // Left Face
+    if (x == 0 || !Blocks[GetBlockIndex(x - 1, y, z)])
+    {
+		AddFace(p6, p1, p4, p7, glm::vec3(-1.0f, 0.0f, 0.0f), BlockUVTable[i].Side);
+	}
+
+    // Top Face 
+    if (y == CHUNK_HEIGHT - 1 || !Blocks[GetBlockIndex(x, y + 1, z)])
+    {
+        AddFace(p4, p3, p8, p7, glm::vec3(0.0f, 1.0f, 0.0f), BlockUVTable[i].Top);
+    }
+
+    // Bottom Face
+    if (y == 0 || !Blocks[GetBlockIndex(x, y - 1, z)])
+    {
+		AddFace(p6, p5, p2, p1, glm::vec3(0.0f, -1.0f, 0.0f), BlockUVTable[i].Bottom);
+    }
+}
+
 void Chunk::UpdateChunk() 
 {
     GenerateChunkMesh();
@@ -374,14 +228,14 @@ void Chunk::UpdateChunk()
 
 inline void Chunk::AddFace(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, const glm::vec3& p4,
 						   const glm::vec3& normal,
-						   const glm::vec2& uv1, const glm::vec2& uv2, const glm::vec2& uv3, const glm::vec2& uv4)
+						   const glm::vec2 uv[])
 {
-    int index = vertices.size();
+    GLuint index = vertices.size();
 
-	vertices.push_back({p1, normal, uv1});
-	vertices.push_back({p2, normal, uv2});
-	vertices.push_back({p3, normal, uv3});
-	vertices.push_back({p4, normal, uv4});
+    vertices.push_back({p1, normal, uv[0]});
+	vertices.push_back({p2, normal, uv[1]});
+	vertices.push_back({p3, normal, uv[2]});
+	vertices.push_back({p4, normal, uv[3]});
 	
 	indices.push_back(index + 0);
 	indices.push_back(index + 1);

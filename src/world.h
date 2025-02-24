@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <vector>
 #include <queue>
 #include <unordered_map>
@@ -9,8 +10,8 @@
 #include "utils/shader.h"
 #include "chunk.h"
 
-static const int RENDER_DISTANCE = 8;
-static const int CHUNKS_PER_FRAME = 1;
+static const int RENDER_DISTANCE = 16;
+static const int CHUNKS_PER_FRAME = 2;
 
 struct ChunkHash
 {
@@ -26,11 +27,14 @@ struct ChunkHash
 struct World 
 {
     World();
+	~World();
 
 	static World* world;
 
     void Render(Shader &shader);
     void Update(Camera camera);
+
+	void Raycast(glm::vec3 Position, glm::vec3 Direction, float MaxReach, int CurrentBlock, bool Mode);
 
     inline void LoadChunks(int ChunkX, int ChunkZ);
     inline void UnloadChunks(int ChunkX, int ChunkZ);

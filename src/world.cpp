@@ -7,13 +7,17 @@ World::World()
     World::world = this;
 }
 
+World::~World()
+{
+}
+
 void World::Update(Camera camera)
 {
-    int ChunkX = (int)(camera.Position.x / CHUNK_SIZE);
-    int ChunkZ = (int)(camera.Position.z / CHUNK_SIZE);
+    int PlayerChunkX = (int)((camera.Position.x) / CHUNK_SIZE);
+    int PlayerChunkZ = (int)((camera.Position.z) / CHUNK_SIZE);
 
-    LoadChunks(ChunkX, ChunkZ);
-    UnloadChunks(ChunkX, ChunkZ);
+    LoadChunks(PlayerChunkX, PlayerChunkZ);
+    UnloadChunks(PlayerChunkX, PlayerChunkZ);
 
     int ChunksProcessed = 0;
     while (!ChunkQueue.empty() && ChunksProcessed++ != CHUNKS_PER_FRAME)
@@ -30,36 +34,68 @@ void World::Update(Camera camera)
 
 inline void World::LoadChunks(int PlayerChunkX, int PlayerChunkZ) 
 {
-    for (int x = -RENDER_DISTANCE; x <= RENDER_DISTANCE; ++x)
+    int CurrentRadius = 0;
+    while (CurrentRadius <= RENDER_DISTANCE)
     {
-        for (int z = -RENDER_DISTANCE; z <= RENDER_DISTANCE; ++z)
-        {
-            glm::vec3 pos(PlayerChunkX + x, 0, PlayerChunkZ + z);
-            if (Chunks.find(pos) == Chunks.end())
-            {
-                Chunks[pos] = new Chunk(pos);
-                Chunks[pos]->GenerateChunk();
-                ChunkQueue.push(pos);
-            }
-        }
+        // Forward
+		for (int i = -CurrentRadius; i <= CurrentRadius; ++i)
+		{
+			glm::ivec3 pos(i + PlayerChunkX, 0, CurrentRadius + PlayerChunkZ);
+			if (Chunks.find(pos) == Chunks.end())
+			{
+				Chunks[pos] = new Chunk(pos);
+				Chunks[pos]->GenerateChunk();
+				ChunkQueue.push(pos);
+			}
+		}
+        // Right 
+		for (int i = -CurrentRadius + 1; i <= CurrentRadius; ++i)
+		{
+			glm::ivec3 pos(CurrentRadius + PlayerChunkX, 0, i + PlayerChunkZ);
+			if (Chunks.find(pos) == Chunks.end())
+			{
+				Chunks[pos] = new Chunk(pos);
+				Chunks[pos]->GenerateChunk();
+				ChunkQueue.push(pos);
+			}
+		}
+        // Backward
+		for (int i = -CurrentRadius + 1; i <= CurrentRadius; ++i)
+		{
+			glm::ivec3 pos(i + PlayerChunkX, 0, -CurrentRadius + PlayerChunkZ);
+			if (Chunks.find(pos) == Chunks.end())
+			{
+				Chunks[pos] = new Chunk(pos);
+				Chunks[pos]->GenerateChunk();
+				ChunkQueue.push(pos);
+			}
+		}
+        // Left
+		for (int i = -CurrentRadius; i <= CurrentRadius - 1; ++i)
+		{
+			glm::ivec3 pos(-CurrentRadius + PlayerChunkX, 0, i + PlayerChunkZ);
+			if (Chunks.find(pos) == Chunks.end())
+			{
+				Chunks[pos] = new Chunk(pos);
+				Chunks[pos]->GenerateChunk();
+				ChunkQueue.push(pos);
+			}
+		}
+        CurrentRadius++;
     }
 }
 
 inline void World::UnloadChunks(int PlayerChunkX, int PlayerChunkZ) {
-    for (auto it = Chunks.begin(); it != Chunks.end(); )
+	for (auto it = Chunks.begin(); it != Chunks.end(); ++it)
     {
-        int chunkX = it->first.x;
-        int chunkZ = it->first.z;
+        int ChunkX = it->first.x;
+        int ChunkZ = it->first.z;
 
-        if (std::abs(chunkX - PlayerChunkX) > RENDER_DISTANCE || std::abs(chunkZ - PlayerChunkZ) > RENDER_DISTANCE)
+        if (abs(ChunkX - PlayerChunkX) > RENDER_DISTANCE || abs(ChunkZ - PlayerChunkZ) > RENDER_DISTANCE)
         {
             delete it->second;
             it = Chunks.erase(it);
         } 
-        else 
-        {
-            ++it;
-        }
     }
 }
 
@@ -74,6 +110,75 @@ void World::Render(Shader& shader)
 
         glBindVertexArray(chunk->VAO);
         glDrawElements(GL_TRIANGLES, chunk->indices.size(), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
     }
+}
+
+void World::Raycast(glm::vec3 Position, glm::vec3 Direction, float MaxReach, int CurrentBlock, bool Mode)
+{
+	float currentReach = 0.0f;
+	glm::ivec3 lastEmptyBlock;
+	bool hasEmptyBlock = false;
+
+	while (currentReach < MaxReach)
+	{
+		currentReach += 0.01f;
+		glm::vec3 result = Position + Direction * currentReach;
+		glm::ivec3 currentBlock;
+		currentBlock.x = std::floor(result.x);
+		currentBlock.y = std::floor(result.y);
+		currentBlock.z = std::floor(result.z);
+
+		int chunkX = std::floor((float)currentBlock.x / CHUNK_SIZE);
+		int chunkZ = std::floor((float)currentBlock.z / CHUNK_SIZE);
+		Chunk* chunk = World::world->Chunks[{chunkX, 0, chunkZ}];
+		if (chunk)
+		{
+			int localX = currentBlock.x - (chunkX * CHUNK_SIZE);
+			int localY = currentBlock.y;
+			int localZ = currentBlock.z - (chunkZ * CHUNK_SIZE);
+			int index = chunk->GetBlockIndex(localX, localY, localZ);
+			uint8_t block = chunk->Blocks[index];
+
+			if (block != 0)
+			{
+				if (Mode)
+				{
+					if (hasEmptyBlock)
+					{
+						int placeGlobalX = lastEmptyBlock.x;
+						int placeGlobalY = lastEmptyBlock.y;
+						int placeGlobalZ = lastEmptyBlock.z;
+
+						int placeChunkX = std::floor((float)placeGlobalX / CHUNK_SIZE);
+						int placeChunkZ = std::floor((float)placeGlobalZ / CHUNK_SIZE);
+						Chunk* placeChunk = World::world->Chunks[{placeChunkX, 0, placeChunkZ}];
+						if (placeChunk)
+						{
+							int localPlaceX = placeGlobalX - (placeChunkX * CHUNK_SIZE);
+							int localPlaceY = placeGlobalY;
+							int localPlaceZ = placeGlobalZ - (placeChunkZ * CHUNK_SIZE);
+							int placeIndex = placeChunk->GetBlockIndex(localPlaceX, localPlaceY, localPlaceZ);
+
+							if (placeChunk->Blocks[placeIndex] == 0)
+							{
+								placeChunk->Blocks[placeIndex] = CurrentBlock; 
+								placeChunk->UpdateChunk();
+							}
+						}
+					}
+				}
+				else
+				{
+					chunk->Blocks[index] = BlockType::AIR;
+					chunk->UpdateChunk();
+				}
+				break;
+			}
+			else
+			{
+				lastEmptyBlock = currentBlock;
+				hasEmptyBlock = true;
+			}
+		}
+	}
 }

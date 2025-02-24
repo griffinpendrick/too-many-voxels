@@ -7,18 +7,11 @@
 #include <vector>
 
 #include "utils/shader.h"
+#include "block.h"
 
-enum BlockType
-{
-    AIR    = 0,
-    GRASS  = 1,
-    STONE  = 2,
-    SNOW   = 3,
-    SAND   = 4,
-    WOOD   = 5,
-    LEAVES = 6,
-    WATER  = 7,
-};
+static const int CHUNK_SIZE = 16;
+static const int CHUNK_HEIGHT = 128;
+static const int WATER_LEVEL = 27;
 
 struct Vertex
 {
@@ -27,16 +20,10 @@ struct Vertex
     glm::vec2 TexCoords;
 };
 
-static const int WATER_LEVEL = 27;
-static const int CHUNK_SIZE = 32;
-static const int CHUNK_HEIGHT = 150;
-
-static const float TEXTURE_DIMENSION = 16.0f / 64.0f;
-static const float BLOCK_RENDER_SIZE = 0.5f;
-
 struct Chunk
 {
     Chunk(glm::ivec3 pos);
+    ~Chunk();
 
     void GenerateChunk();
     void GenerateChunkMesh();
@@ -48,7 +35,7 @@ struct Chunk
 
     inline void AddFace(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, const glm::vec3& p4,
 				const glm::vec3& normal,
-				const glm::vec2& uv1, const glm::vec2& uv2, const glm::vec2& uv3, const glm::vec2& uv4);
+				const glm::vec2 uv[]);
 
     inline int GetBlockIndex(int x, int y, int z);
 
@@ -56,7 +43,7 @@ struct Chunk
 
     GLuint VAO, VBO, EBO;
     std::vector<Vertex> vertices;
-    std::vector<GLint> indices;
+    std::vector<GLuint> indices;
 
     glm::ivec3 Position;
     std::vector<uint8_t> Blocks;
