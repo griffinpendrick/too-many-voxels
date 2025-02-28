@@ -7,17 +7,15 @@ in vec3 Normal;
 
 uniform sampler2D TextureAtlas;
 
-vec3 ambient = vec3(0.5, 0.5, 0.5);
-vec3 lightDirection = vec3(0.5, 1, 0.5);
+vec3 Ambient = vec3(0.5, 0.5, 0.5);
 
 void main() 
 {
-	vec3 lightDir = normalize(lightDirection);
-	float diff = max(dot(Normal, lightDir), 0.0);
-	vec3 diffuse = diff * vec3(1);
+	vec3 LightDir = normalize(vec3(0.5, 1, 0.5));
+	vec3 Diffuse = max(dot(Normal, LightDir), 0.0) * vec3(1);
 
-	vec3 result = ambient + diffuse;
-    vec4 textureColor = texture(TextureAtlas, TexCoord);
+	vec3 Result = Ambient + Diffuse;
+    vec4 TextureColor = texture(TextureAtlas, TexCoord);
 
-    FragColor = textureColor * vec4(result, 1.0);
+    FragColor = TextureColor * vec4(Result, 1.0);
 }

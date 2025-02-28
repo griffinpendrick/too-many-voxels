@@ -1,10 +1,12 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 #include <sstream>
 #include <fstream>
+
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
+#include "glm/glm.hpp"
+#include "common.h"
 
 struct Shader 
 {
@@ -13,7 +15,7 @@ struct Shader
     void Use();
     void SetMat4(const char* name, const glm::mat4& mat) const;
     void SetVec3(const char* name, const glm::vec3& vec) const;
-    void SetInt(const char* name, int value) const;
+    void SetInt(const char* name, s32 value) const;
 
-    GLuint ID;
+    u32 ID;
 };

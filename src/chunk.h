@@ -1,50 +1,52 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <vector>
 
+#include "FastNoiseLite.h"
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "utils/common.h"
 #include "utils/shader.h"
 #include "block.h"
 
-static const int CHUNK_SIZE = 16;
-static const int CHUNK_HEIGHT = 128;
-static const int WATER_LEVEL = 27;
+#define CHUNK_SIZE 16
+#define CHUNK_HEIGHT 128
+#define WATER_LEVEL 27
+
+#define NOISE_OCTAVES 4
+#define NOISE_SEED 999
+
+inline u16 GetBlockIndex(u8 x, u8 y, u8 z);
 
 struct Vertex
 {
+    glm::vec2 TexCoords;
     glm::vec3 Position;
     glm::vec3 Normal;
-    glm::vec2 TexCoords;
 };
 
 struct Chunk
 {
-    Chunk(glm::ivec3 pos);
+    Chunk(glm::ivec3 ChunkPosition);
     ~Chunk();
 
+    void UpdateChunk();
     void GenerateChunk();
     void GenerateChunkMesh();
-    void GenerateBlockMesh(int x, int y, int z);
-    inline void GenerateTreeMesh(int x, int y, int z);
-    void UpdateChunk();
+    void GenerateBlockMesh(u8 x, u8 y, u8 z);
+    inline void GenerateTreeMesh(u8 x, u8 y, u8 z);
 
-    inline float GetHeightMap(Chunk* chunk, int x, int z);
-
-    inline void AddFace(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, const glm::vec3& p4,
-				const glm::vec3& normal,
-				const glm::vec2 uv[]);
-
-    inline int GetBlockIndex(int x, int y, int z);
+    inline u8 GetHeightMap(Chunk* chunk, u8 x, u8 z);
+    inline void AddFace(glm::vec3& p1, glm::vec3& p2, glm::vec3& p3, glm::vec3& p4, glm::vec3& normal, const glm::vec2 uv[]);
 
     bool Generated;
+    u32 VAO, VBO, EBO;
 
-    GLuint VAO, VBO, EBO;
-    std::vector<Vertex> vertices;
-    std::vector<GLuint> indices;
-
+    u8 Blocks[CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE];
     glm::ivec3 Position;
-    std::vector<uint8_t> Blocks;
+
+    std::vector<u32> indices;
+    std::vector<Vertex> vertices;
 };

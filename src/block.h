@@ -1,8 +1,8 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include "glm/glm.hpp"
 
-#define TEXTURE_DIMENSION 0.25f
+#define TEXTURE_DIMENSION 0.25f // TEXTURE_SIZE / ATLAS_SIZE
 #define BLOCK_RENDER_SIZE 0.50f
 
 enum BlockType
@@ -18,13 +18,14 @@ enum BlockType
     BEDROCK = 8,
 };
 
-struct BlockUV {
+struct TextureUV {
     glm::vec2 Side[4];
     glm::vec2 Top[4];
     glm::vec2 Bottom[4];
 };
 
-static const BlockUV BlockUVTable[] = {
+// Precalculated UV Table
+static const TextureUV UVTable[] = {
 	// GRASS
     {
         // Side

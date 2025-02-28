@@ -22,11 +22,11 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
 	const char* vShaderCode = vertexCode.c_str();
 	const char* fShaderCode = fragmentCode.c_str();
 
-	GLuint vertex = glCreateShader(GL_VERTEX_SHADER);
+	u32 vertex = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex, 1, &vShaderCode, NULL);
 	glCompileShader(vertex);
 
-	GLuint fragment = glCreateShader(GL_FRAGMENT_SHADER);
+	u32 fragment = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragment, 1, &fShaderCode, NULL);
 	glCompileShader(fragment);
 
@@ -49,7 +49,7 @@ void Shader::SetMat4(const char* name, const glm::mat4& mat) const
 	glUniformMatrix4fv(glGetUniformLocation(ID, name), 1, GL_FALSE, &mat[0][0]);
 }
 
-void Shader::SetInt(const char* name, int value) const 
+void Shader::SetInt(const char* name, s32 value) const 
 {
     glUniform1i(glGetUniformLocation(ID, name), value);
 }
