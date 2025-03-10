@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __CHUNK_H__
+#define __CHUNK_H__
 
 #include <vector>
 
@@ -6,7 +7,6 @@
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
 #include "utils/common.h"
 #include "utils/shader.h"
 #include "block.h"
@@ -18,35 +18,29 @@
 #define NOISE_OCTAVES 4
 #define NOISE_SEED 999
 
-inline u16 GetBlockIndex(u8 x, u8 y, u8 z);
-
-struct Vertex
+typedef struct
 {
     glm::vec2 TexCoords;
     glm::vec3 Position;
     glm::vec3 Normal;
-};
+} Vertex;
 
-struct Chunk
+typedef struct
 {
-    Chunk(glm::ivec3 ChunkPosition);
-    ~Chunk();
-
-    void UpdateChunk();
-    void GenerateChunk();
-    void GenerateChunkMesh();
-    void GenerateBlockMesh(u8 x, u8 y, u8 z);
-    inline void GenerateTreeMesh(u8 x, u8 y, u8 z);
-
-    inline u8 GetHeightMap(Chunk* chunk, u8 x, u8 z);
-    inline void AddFace(glm::vec3& p1, glm::vec3& p2, glm::vec3& p3, glm::vec3& p4, glm::vec3& normal, const glm::vec2 uv[]);
-
-    bool Generated;
     u32 VAO, VBO, EBO;
-
-    u8 Blocks[CHUNK_SIZE * CHUNK_HEIGHT * CHUNK_SIZE];
     glm::ivec3 Position;
+    std::vector<u32> Indices;
+    std::vector<Vertex> Vertices;
+    std::vector<u8> Blocks;
+} Chunk;
 
-    std::vector<u32> indices;
-    std::vector<Vertex> vertices;
-};
+void UpdateChunk(Chunk* chunk);
+void DeleteChunk(Chunk* chunk);
+void GenerateChunk(Chunk* chunk);
+void GenerateChunkMesh(Chunk* chunk);
+void GenerateBlockMesh(Chunk* chunk, const u8 x, const u8 y, const u8 z);
+inline void AddFace(Chunk* chunk, glm::vec3& p1, glm::vec3& p2, glm::vec3& p3, glm::vec3& p4, glm::vec3& normal, const glm::vec2 uv[]);
+inline u8 GetHeightMap(Chunk* chunk, const u8 x, const u8 z);
+inline u16 GetBlockIndex(const u8 x, const u8 y, const u8 z);
+
+#endif

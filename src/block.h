@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __BLOCK_H__
+#define __BLOCK_H__
 
 #include "glm/glm.hpp"
 
@@ -18,14 +19,16 @@ enum BlockType
     BEDROCK = 8,
 };
 
-struct TextureUV {
+typedef struct 
+{
     glm::vec2 Side[4];
     glm::vec2 Top[4];
     glm::vec2 Bottom[4];
-};
+} TextureUV;
 
 // Precalculated UV Table
-static const TextureUV UVTable[] = {
+static const TextureUV UVTable[] = 
+{
 	// GRASS
     {
         // Side
@@ -171,3 +174,5 @@ static const TextureUV UVTable[] = {
 		{TEXTURE_DIMENSION * 3.0f, TEXTURE_DIMENSION * 3.0f}},
     },
 };
+
+#endif

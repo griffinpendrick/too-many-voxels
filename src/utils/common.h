@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __COMMON_H__
+#define __COMMON_H__
 
 // Basic Types, Math Functions, etc.
 
@@ -40,3 +41,5 @@ static inline f32 abs_(f32 x)
 {
     return (x < 0) ? -x : x;
 }
+
+#endif

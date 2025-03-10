@@ -1,39 +1,99 @@
-#pragma once
+#ifndef __MAIN_H__
+#define __MAIN_H__
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
-#include "world.h"
+#include "chunkmanager.h"
 #include "utils/common.h"
 #include "utils/shader.h"
 #include "utils/camera.h"
 
-static f32 WindowWidth = 1280.0f;
-static f32 WindowHeight = 720.0f;
-#define ASPECT_RATIO WindowWidth / WindowHeight
+typedef struct
+{
+	Chunk* CurrentChunk;
+	Chunk* RayChunk;
+	glm::ivec3 PlacePosition;
+	glm::ivec3 BreakPosition;
+} RaycastInfo;
+
+s32 WindowWidth = 1280;
+s32 WindowHeight = 720;
 
 static f32 dt = 0.0f;
-static u8 SelectedBlock = BlockType::GRASS; // The Current Block the Player is "Holding"
+static u64 Tick = 0;
+static u8 CurrentHeldBlock = BlockType::GRASS;
+static Camera camera(glm::ivec3(0, 70, 0), glm::vec2(WindowWidth, WindowHeight));
+static RaycastInfo RaycastHit = {nullptr, nullptr, glm::ivec3(0), glm::ivec3(0)};
 
-static Camera camera(glm::ivec3(51, 32, -10), glm::vec2(WindowWidth, WindowHeight));
+#define MAX_REACH_DISTANCE 5.0f
 
-static RaycastInfo RaycastHit(nullptr, nullptr, glm::ivec3(0), glm::ivec3(0));
-#define PLAYER_REACH 5.0f
+RaycastInfo Raycast(const glm::vec3 Position, const glm::vec3 Direction)
+{
+    f32 CurrentReach = 0.0f;
+    glm::vec3 LastEmptyBlock = Position;
+
+    while (CurrentReach < MAX_REACH_DISTANCE)
+    {
+        CurrentReach += 0.01f;
+        glm::vec3 Result = Position + Direction * CurrentReach;
+
+		s32 ChunkX     = floor_(Result.x / CHUNK_SIZE);
+		s32 ChunkZ     = floor_(Result.z / CHUNK_SIZE);
+		s32 LastChunkX = floor_(LastEmptyBlock.x / CHUNK_SIZE);
+		s32 LastChunkZ = floor_(LastEmptyBlock.z / CHUNK_SIZE);
+
+        glm::ivec3 ChunkPosition(ChunkX, 0, ChunkZ);
+        glm::ivec3 LastChunkPosition(LastChunkX, 0, LastChunkZ);
+		if (Manager.Chunks.find(ChunkPosition) == Manager.Chunks.end() || Manager.Chunks.find(LastChunkPosition) == Manager.Chunks.end())
+		{
+			LastEmptyBlock = Result;
+			continue;
+		}
+
+		Chunk* LocalBlockChunk = Manager.Chunks[ChunkPosition];
+		Chunk* LastEmptyBlockChunk = Manager.Chunks[LastChunkPosition];
+
+		s32 LocalX = floor_(Result.x + BLOCK_RENDER_SIZE) - (ChunkX * CHUNK_SIZE);
+		s32 LocalY = floor_(Result.y + BLOCK_RENDER_SIZE);
+		s32 LocalZ = floor_(Result.z + BLOCK_RENDER_SIZE) - (ChunkZ * CHUNK_SIZE);
+		s32 LastEmptyLocalX = floor_(LastEmptyBlock.x + BLOCK_RENDER_SIZE) - (LastChunkX * CHUNK_SIZE);
+		s32 LastEmptyLocalY = floor_(LastEmptyBlock.y + BLOCK_RENDER_SIZE);
+		s32 LastEmptyLocalZ = floor_(LastEmptyBlock.z + BLOCK_RENDER_SIZE) - (LastChunkZ * CHUNK_SIZE);
+
+		clamp_(LocalX, 0, CHUNK_SIZE - 1);
+		clamp_(LocalY, 0, CHUNK_HEIGHT - 1);
+		clamp_(LocalZ, 0, CHUNK_SIZE - 1);
+		clamp_(LastEmptyLocalX, 0, CHUNK_SIZE - 1);
+		clamp_(LastEmptyLocalY, 0, CHUNK_HEIGHT - 1);
+		clamp_(LastEmptyLocalZ, 0, CHUNK_SIZE - 1);
+
+		// Enforce Height Limits 
+		if ((LastEmptyBlock.y <= 1 || LastEmptyBlock.y >= CHUNK_HEIGHT) || !LocalBlockChunk->Blocks[GetBlockIndex(LocalX, LocalY, LocalZ)])
+		{
+			LastEmptyBlock = Result;
+			continue;
+		}
+
+        return {LocalBlockChunk, LastEmptyBlockChunk, glm::ivec3(LastEmptyLocalX, LastEmptyLocalY, LastEmptyLocalZ), glm::ivec3(LocalX, LocalY, LocalZ)};
+    }
+    return {nullptr, nullptr, glm::ivec3(0), glm::ivec3(0)};
+}
 
 void ProcessInput(GLFWwindow* Window)
 {
     // Place / Break Voxel
-    if (RaycastHit.CurrentChunk)
+    if (RaycastHit.CurrentChunk && Tick % 15 == 0)
     {
 		if (glfwGetMouseButton(Window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS)
 		{
-			World::world->SetBlock(RaycastHit.RayChunk, RaycastHit.PlacePosition, SelectedBlock, true);
+			SetBlock(RaycastHit.RayChunk, RaycastHit.PlacePosition, CurrentHeldBlock, true);
 		}
 		if (glfwGetMouseButton(Window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS)
 		{
-			World::world->SetBlock(RaycastHit.CurrentChunk, RaycastHit.BreakPosition, SelectedBlock, false);
+			SetBlock(RaycastHit.CurrentChunk, RaycastHit.BreakPosition, CurrentHeldBlock, false);
 		}
     }
 
@@ -87,7 +147,7 @@ inline void LoadTexture(const char* TexturePath)
     u32 ID;
     s32 Width, Height, Channels;
 
-    stbi_set_flip_vertically_on_load(1); // Flips the Textures to the Correct Orientation
+    stbi_set_flip_vertically_on_load(1); 
     unsigned char* data = stbi_load(TexturePath, &Width, &Height, &Channels, 0);
 
     glGenTextures(1, &ID);
@@ -102,7 +162,6 @@ inline void LoadTexture(const char* TexturePath)
 
 void framebuffer_size_callback(GLFWwindow* Window, s32 Width, s32 Height)
 {
-    // Update Globals
     WindowWidth = Width;
     WindowHeight = Height;
 
@@ -114,25 +173,25 @@ void scroll_callback(GLFWwindow* Window, f64 XOffset, f64 YOffset)
     // Clamp Players Block Selection
     if (YOffset > 0)
     {
-        SelectedBlock++;
-        if (SelectedBlock > 8)
+        CurrentHeldBlock++;
+        if (CurrentHeldBlock > 8)
         {
-            SelectedBlock = 1;
+            CurrentHeldBlock = 1;
         }
     }
     else
     {
-        SelectedBlock--;
-        if (SelectedBlock < 1)
+        CurrentHeldBlock--;
+        if (CurrentHeldBlock < 1)
         {
-            SelectedBlock = 8;
+            CurrentHeldBlock = 8;
         }
     }
 }
 
-void RenderPlacementOutline(Chunk* chunk, glm::ivec3 position)
+void RenderPlacementOutline(const Chunk* chunk, glm::ivec3 position)
 {
-	position += (chunk->Position * CHUNK_SIZE); // Converts Block Position From Local to World Coords
+	position += (chunk->Position * CHUNK_SIZE); 
 
     glm::vec3 OutlineVertices[] = {
         glm::vec3(position.x - BLOCK_RENDER_SIZE, position.y - BLOCK_RENDER_SIZE, position.z + BLOCK_RENDER_SIZE), 
@@ -145,7 +204,7 @@ void RenderPlacementOutline(Chunk* chunk, glm::ivec3 position)
         glm::vec3(position.x - BLOCK_RENDER_SIZE, position.y + BLOCK_RENDER_SIZE, position.z - BLOCK_RENDER_SIZE)  
     };
 
-    u32 indices[] = {
+    u32 Indices[] = {
         0, 1, 1, 2, 
         2, 3, 3, 0, 
         4, 5, 5, 6, 
@@ -164,13 +223,15 @@ void RenderPlacementOutline(Chunk* chunk, glm::ivec3 position)
 
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 24 * sizeof(u32), indices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 24 * sizeof(u32), Indices, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
     glEnableVertexAttribArray(0);
 
+    glDisable(GL_DEPTH_TEST);
     glLineWidth(2.5);    
     glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+    glEnable(GL_DEPTH_TEST);
 
     glBindVertexArray(0);
     glDeleteVertexArrays(1, &VAO);
@@ -210,3 +271,5 @@ void RenderCrosshair()
     glDeleteBuffers(1, &VBO);
     glDeleteVertexArrays(1, &VAO);
 }
+
+#endif
